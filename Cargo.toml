@@ -1,0 +1,19 @@
+[package]
+name = "pidfile-rs"
+version = "0.1.0"
+authors = ["Andrej Shadura <andrew.shadura@collabora.co.uk>"]
+edition = "2018"
+description = "Rust wrapper for pidfile_* functions from libbsd/libutil"
+license = "MIT"
+repository = "https://github.com/andrewshadura/bsd-pidfile-rs"
+
+[dependencies]
+libc = "0.2"
+thiserror = "1.0"
+log = "0.4"
+
+[build-dependencies]
+pkg-config = "0.3"
+
+[dev-dependencies]
+tempfile = "3"
