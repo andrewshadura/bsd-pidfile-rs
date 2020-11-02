@@ -153,7 +153,7 @@ mod tests {
     #[test]
     fn create_file() {
         let dir = tempdir().unwrap();
-        let mut pidfile_path = dir.into_path();
+        let mut pidfile_path = dir.path().to_owned();
         pidfile_path.push("file.pid");
         let my_pid = process::id().to_string();
         {
@@ -177,7 +177,7 @@ mod tests {
     #[test]
     fn close_file() {
         let dir = tempdir().unwrap();
-        let mut pidfile_path = dir.into_path();
+        let mut pidfile_path = dir.path().to_owned();
         pidfile_path.push("file.pid");
         let my_pid = process::id().to_string();
         {
@@ -203,7 +203,7 @@ mod tests {
     #[test]
     fn invalid_path() {
         let dir = tempdir().unwrap();
-        let mut pidfile_path = dir.into_path();
+        let mut pidfile_path = dir.path().to_owned();
         pidfile_path.push("<<non-existing>>");
         pidfile_path.push("file.pid");
         let error = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
@@ -229,7 +229,7 @@ mod tests {
     #[test]
     fn concurrent() {
         let dir = tempdir().unwrap();
-        let mut pidfile_path = dir.into_path();
+        let mut pidfile_path = dir.path().to_owned();
         pidfile_path.push("file.pid");
         let my_pid = process::id().to_string();
         let pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
