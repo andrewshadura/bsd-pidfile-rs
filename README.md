@@ -16,3 +16,12 @@ The ultimate goal is to rewrite these functions in Rust, but until a rewrite is 
 [libutil]: https://man.netbsd.org/libutil.3
 [libbsd]: https://libbsd.freedesktop.org/
 [pidfile]: https://linux.die.net/man/3/pidfile
+
+License
+-------
+
+[MIT license](LICENSE-MIT), also known as the Expat license.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you shall be licensed as above, without any additional
+terms or conditions.

@@ -1,3 +1,5 @@
+// Copyright (C) 2020 Andrej Shadura
+// SPDX-License-Identifier: MIT
 use std::ffi::{CString, NulError};
 use std::fs::Permissions;
 use std::io;
