@@ -39,7 +39,50 @@ extern {
 /// the scope. To close the PID file without deleting it, for example, in
 /// the parent process of a forked daemon, call `close()`.
 ///
+/// # Example
+///
+/// When the parent process exits without calling destructors, e.g. by
+/// using [`exit`][] or when forking with [`daemon`(3)], `Pidfile` can
+/// be used in the following way:
+/// ```rust
+/// # use std::error::Error;
+/// # use std::fs::Permissions;
+/// # use std::os::unix::fs::PermissionsExt;
+/// # use tempfile::tempdir;
+/// // This example uses daemon(3) wrapped by nix to daemonise:
+/// use nix::unistd::daemon;
+/// use pidfile_rs::Pidfile;
+///
+/// // ...
+///
+/// # let dir = tempdir()?;
+/// # let mut pidfile_path = dir.path().to_owned();
+/// # pidfile_path.push("file.pid");
+/// # println!("pidfile_path = {:?}", pidfile_path);
+/// let pidfile = Some(Pidfile::new(
+///     &pidfile_path,
+///     Permissions::from_mode(0o600)
+/// )?);
+///
+/// // do some pre-fork preparations
+/// // ...
+///
+/// // in the parent process, the PID file is closed without deleting it
+/// daemon(false, true)?;
+///
+/// pidfile.unwrap().write();
+///
+/// // do some work
+/// println!("The daemon’s work is done, now it’s time to go home.");
+///
+/// // the PID file will be deleted when this function returns
+///
+/// # Ok::<(), Box<dyn Error>>(())
+/// ```
+///
+/// [`exit`]: https://doc.rust-lang.org/std/process/fn.exit.html
 /// [`pidfile`]: https://linux.die.net/man/3/pidfile
+/// [`daemon`(3)]: https://linux.die.net/man/3/daemon
 #[derive(Debug)]
 pub struct Pidfile {
     pidfn: *mut pidfn
@@ -116,9 +159,10 @@ impl Pidfile {
         }
     }
 
-    /// Close the PID file without removing it.
+    /// Closes the PID file without removing it.
     ///
-    /// The PID file cannot be manipulated with after this function has
+    /// This function consumes the object, making it impossible
+    /// to manipulated with the PID file after this function has
     /// been called.
     pub fn close(self) {
         if unsafe {
@@ -131,6 +175,7 @@ impl Pidfile {
 }
 
 impl Drop for Pidfile {
+    /// Closes the PID file and removes it.
     fn drop(&mut self) {
         if unsafe {
             bsd_pidfile_remove(self.pidfn) != 0
