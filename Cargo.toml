@@ -13,7 +13,10 @@ thiserror = "1.0"
 log = "0.4"
 
 [build-dependencies]
-pkg-config = "0.3"
+system-deps = "5"
+
+[package.metadata.system-deps]
+libbsd = "0.1.6"
 
 [dev-dependencies]
 tempfile = "3"
