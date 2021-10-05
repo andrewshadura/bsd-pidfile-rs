@@ -1,6 +1,6 @@
 [package]
 name = "pidfile-rs"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Andrej Shadura <andrew.shadura@collabora.co.uk>"]
 edition = "2018"
 description = "Rust wrapper for pidfile_* functions from libbsd/libutil"
