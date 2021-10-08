@@ -117,33 +117,28 @@ impl Pidfile {
     /// a PID of the already running process, or `None` if no PID has been written to
     /// the PID file yet.
     pub fn new(path: &PathBuf, permissions: Permissions) -> Result<Pidfile, PidfileError> {
-        match CString::new(path.clone().into_os_string().into_vec()) {
-            Ok(c_path) => {
-                let mut old_pid: pid_t = -1;
-                let pidfn = unsafe {
-                    bsd_pidfile_open(c_path.as_ptr(), permissions.mode() as mode_t, &mut old_pid)
-                };
-                if !pidfn.is_null() {
-                    return Ok(Pidfile {
-                        pidfn: pidfn
-                    });
-                } else {
-                    let err = io::Error::last_os_error();
-                    if err.kind() == io::ErrorKind::AlreadyExists {
-                        return Err(PidfileError::AlreadyRunning {
-                            pid: if old_pid != -1 {
-                                Some(old_pid)
-                            } else {
-                                None
-                            }
-                        });
+        let c_path = CString::new(path.clone().into_os_string().into_vec())
+            .map_err(PidfileError::NulError)?;
+        let mut old_pid: pid_t = -1;
+        let pidfn = unsafe {
+            bsd_pidfile_open(c_path.as_ptr(), permissions.mode() as mode_t, &mut old_pid)
+        };
+        if !pidfn.is_null() {
+            Ok(Pidfile {
+                pidfn: pidfn
+            })
+        } else {
+            let err = io::Error::last_os_error();
+            if err.kind() == io::ErrorKind::AlreadyExists {
+                Err(PidfileError::AlreadyRunning {
+                    pid: if old_pid != -1 {
+                        Some(old_pid)
                     } else {
-                        Err(PidfileError::Io(err))
+                        None
                     }
-                }
-            },
-            Err(err) => {
-                Err(PidfileError::NulError(err))
+                })
+            } else {
+                Err(PidfileError::Io(err))
             }
         }
     }
