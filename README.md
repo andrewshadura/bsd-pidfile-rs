@@ -5,7 +5,7 @@ This crate provides a wrapper for a family of [`pidfile_*` functions][pidfile] p
 
 Known alternatives in pure Rust:
 
- * [pidfile](https://crates.io/crates/pidfile) by Carl Lerche, very advanced, but last updated in 2014 and now longer compiles with modern Rust.
+ * [pidfile](https://crates.io/crates/pidfile) by Carl Lerche, very advanced, but last updated in 2014 and no longer compiles with modern Rust.
  * [pidlock](https://crates.io/crates/pidlock) by Paul Hummer provides a lock-like API, but doesn’t actually use filesystem locks.
  * [qpidfile](https://crates.io/crates/qpidfile) by Jan Danielsson, well-maintained, but very basic.
 
