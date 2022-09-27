@@ -20,4 +20,4 @@ libbsd = "0.1.6"
 
 [dev-dependencies]
 tempfile = "3"
-nix = "0.19"
+nix = "^0.19"
