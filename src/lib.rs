@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Andrej Shadura
+// Copyright (C) 2020—2022 Andrej Shadura
 // SPDX-License-Identifier: MIT
 use std::fs::{read_to_string, remove_file, File, Metadata, OpenOptions, Permissions};
 use std::io;
