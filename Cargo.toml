@@ -11,12 +11,7 @@ repository = "https://github.com/andrewshadura/bsd-pidfile-rs"
 libc = "0.2"
 thiserror = "1.0"
 log = "0.4"
-
-[build-dependencies]
-system-deps = "5"
-
-[package.metadata.system-deps]
-libbsd = "0.1.6"
+flopen = "0.1"
 
 [dev-dependencies]
 tempfile = "3"

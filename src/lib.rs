@@ -1,30 +1,14 @@
 // Copyright (C) 2020 Andrej Shadura
 // SPDX-License-Identifier: MIT
-use std::ffi::{CString, NulError};
-use std::fs::Permissions;
+use std::fs::{read_to_string, remove_file, File, Metadata, OpenOptions, Permissions};
 use std::io;
-use std::os::unix::{ffi::OsStringExt, fs::PermissionsExt};
+use std::io::Write;
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::PathBuf;
-use libc::{c_char, c_int, mode_t, pid_t};
+use flopen::OpenAndLock;
+use libc::{getpid, pid_t};
 use log::warn;
 use thiserror::Error;
-
-#[allow(non_camel_case_types)]
-enum pidfn {}
-
-extern {
-    #[link_name = "pidfile_open"]
-    fn bsd_pidfile_open(path: *const c_char, mode: mode_t, pidptr: *mut pid_t) -> *mut pidfn;
-    #[link_name = "pidfile_write"]
-    fn bsd_pidfile_write(pfh: *mut pidfn) -> c_int;
-    #[link_name = "pidfile_close"]
-    fn bsd_pidfile_close(pfh: *mut pidfn) -> c_int;
-    #[link_name = "pidfile_remove"]
-    fn bsd_pidfile_remove(pfh: *mut pidfn) -> c_int;
-    #[allow(dead_code)]
-    #[link_name = "pidfile_fileno"]
-    fn bsd_pidfile_fileno(pfh: *mut pidfn) -> c_int;
-}
 
 /// A PID file protected with a lock.
 ///
@@ -53,7 +37,7 @@ extern {
 /// # use tempfile::tempdir;
 /// // This example uses daemon(3) wrapped by nix to daemonise:
 /// use nix::unistd::daemon;
-/// use pidfile_rs::Pidfile;
+/// use pidfile_rs::{Pidfile, PidfileError};
 ///
 /// // ...
 ///
@@ -87,7 +71,10 @@ extern {
 /// [`daemon`(3)]: https://linux.die.net/man/3/daemon
 #[derive(Debug)]
 pub struct Pidfile {
-    pidfn: *mut pidfn
+    file: File,
+    path: PathBuf,
+    metadata: Metadata,
+    autoremove: bool,
 }
 
 #[derive(Error, Debug)]
@@ -105,9 +92,6 @@ pub enum PidfileError {
     /// An I/O error has occurred.
     #[error(transparent)]
     Io(#[from] io::Error),
-    /// An interior NUL byte was found in the path.
-    #[error(transparent)]
-    NulError(#[from] NulError),
 }
 
 impl Pidfile {
@@ -117,43 +101,60 @@ impl Pidfile {
     /// a PID of the already running process, or `None` if no PID has been written to
     /// the PID file yet.
     pub fn new(path: &PathBuf, permissions: Permissions) -> Result<Pidfile, PidfileError> {
-        let c_path = CString::new(path.clone().into_os_string().into_vec())
-            .map_err(PidfileError::NulError)?;
-        let mut old_pid: pid_t = -1;
-        let pidfn = unsafe {
-            bsd_pidfile_open(c_path.as_ptr(), permissions.mode() as mode_t, &mut old_pid)
-        };
-        if !pidfn.is_null() {
-            Ok(Pidfile {
-                pidfn: pidfn
-            })
-        } else {
-            let err = io::Error::last_os_error();
-            if err.kind() == io::ErrorKind::AlreadyExists {
-                Err(PidfileError::AlreadyRunning {
-                    pid: if old_pid != -1 {
-                        Some(old_pid)
-                    } else {
-                        None
-                    }
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .mode(permissions.mode())
+            .try_open_and_lock(path);
+        match file {
+            Ok(file) => {
+                file.set_len(0)?;
+                let metadata = file.metadata()?;
+                Ok(Pidfile {
+                    file: file,
+                    path: path.clone(),
+                    metadata: metadata,
+                    autoremove: true,
                 })
-            } else {
-                Err(PidfileError::Io(err))
             }
+            Err(err) => {
+                if err.kind() == io::ErrorKind::WouldBlock {
+                    Err(PidfileError::AlreadyRunning {
+                        pid: Pidfile::read(path),
+                    })
+                } else {
+                    Err(PidfileError::Io(err))
+                }
+            }
+        }
+    }
+
+    fn read(path: &PathBuf) -> Option<pid_t> {
+        read_to_string(path).ok()?.parse::<pid_t>().ok()
+    }
+
+    fn verify(&self) -> Result<(), PidfileError> {
+        let current_metadata = self.file.metadata()?;
+        if current_metadata.ino() == self.metadata.ino()
+            && current_metadata.dev() == self.metadata.dev()
+        {
+            Ok(())
+        } else {
+            Err(PidfileError::AlreadyRunning {
+                pid: Pidfile::read(&self.path),
+            })
         }
     }
 
     /// Writes the current process ID to the PID file.
     ///
     /// The file is truncated before writing.
-    pub fn write(&self) -> Result<(), PidfileError> {
-        if unsafe {
-            bsd_pidfile_write(self.pidfn) == 0
-        } {
-            Ok(())
-        } else {
-            Err(PidfileError::Io(io::Error::last_os_error()))
-        }
+    pub fn write(&mut self) -> Result<(), PidfileError> {
+        self.file.set_len(0)?;
+        let pid = unsafe { getpid() };
+        write!(self.file, "{}", pid)?;
+        self.file.sync_data()?;
+        Ok(())
     }
 
     /// Closes the PID file without removing it.
@@ -161,24 +162,25 @@ impl Pidfile {
     /// This function consumes the object, making it impossible
     /// to manipulated with the PID file after this function has
     /// been called.
-    pub fn close(self) {
-        if unsafe {
-            bsd_pidfile_close(self.pidfn) != 0
-        } {
-            let err = io::Error::last_os_error();
-            warn!("Failed to close the PID file: {}", err);
+    pub fn close(mut self) {
+        if let Err(err) = self.verify() {
+            warn!("Failed to verify the PID file before closing: {}", err);
         }
+        self.autoremove = false
     }
 }
 
 impl Drop for Pidfile {
     /// Closes the PID file and removes it.
     fn drop(&mut self) {
-        if unsafe {
-            bsd_pidfile_remove(self.pidfn) != 0
-        } {
-            let err = io::Error::last_os_error();
-            warn!("Failed to remove the PID file: {}", err);
+        if let Err(err) = self.verify() {
+            warn!("Failed to verify the PID file before closing: {}", err);
+        } else {
+            if self.autoremove {
+                if let Err(err) = remove_file(&self.path) {
+                    warn!("Failed to remove the PID file: {}", err);
+                }
+            }
         }
     }
 }
@@ -186,8 +188,7 @@ impl Drop for Pidfile {
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use std::fs::{Permissions, read_to_string};
-    use std::io;
+    use std::fs::{read_to_string, Permissions};
     use std::os::unix::fs::PermissionsExt;
     use std::process;
     use tempfile::tempdir;
@@ -199,7 +200,7 @@ mod tests {
         pidfile_path.push("file.pid");
         let my_pid = process::id().to_string();
         {
-            let pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
+            let mut pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
                 .expect("Failed to create PID file");
             println!("pidfile_path = {:?}", pidfile_path);
             assert_eq!(pidfile_path.is_file(), true);
@@ -223,7 +224,7 @@ mod tests {
         pidfile_path.push("file.pid");
         let my_pid = process::id().to_string();
         {
-            let pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
+            let mut pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
                 .expect("Failed to create PID file");
             println!("pidfile_path = {:?}", pidfile_path);
             assert_eq!(pidfile_path.is_file(), true);
@@ -243,38 +244,12 @@ mod tests {
     }
 
     #[test]
-    fn invalid_path() {
-        let dir = tempdir().unwrap();
-        let mut pidfile_path = dir.path().to_owned();
-        pidfile_path.push("<<non-existing>>");
-        pidfile_path.push("file.pid");
-        let error = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
-            .expect_err("PID file shouldn’t exist, but it does");
-        println!("pidfile_path = {:?}", pidfile_path);
-        assert_eq!(pidfile_path.is_file(), false);
-        if let PidfileError::Io(error) = error {
-            assert_eq!(error.kind(), io::ErrorKind::NotFound);
-        } else {
-            panic!("unexpected error: {:?}", error)
-        }
-
-        pidfile_path.push("\0");
-        let error = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
-            .expect_err("NULs should not have been accepted, but they were");
-        if let PidfileError::NulError(error) = error {
-            println!("expected error: {}", error);
-        } else {
-            panic!("unexpected error: {:?}", error)
-        }
-    }
-
-    #[test]
     fn concurrent() {
         let dir = tempdir().unwrap();
         let mut pidfile_path = dir.path().to_owned();
         pidfile_path.push("file.pid");
         let my_pid = process::id().to_string();
-        let pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
+        let mut pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
             .expect("Failed to create PID file");
         println!("pidfile_path = {:?}", pidfile_path);
         assert_eq!(pidfile_path.is_file(), true, "PID file not created?");
