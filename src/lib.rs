@@ -9,22 +9,20 @@ use libc::{c_char, c_int, mode_t, pid_t};
 use log::warn;
 use thiserror::Error;
 
+#[cfg(any(target_os = "dragonfly", target_os = "freebsd"))]
+use libc::{pidfh, pidfile_close, pidfile_open, pidfile_remove, pidfile_write};
+
+#[cfg(not(any(target_os = "dragonfly", target_os = "freebsd")))]
+extern {
+    fn pidfile_open(path: *const c_char, mode: mode_t, pidptr: *mut pid_t) -> *mut pidfh;
+    fn pidfile_write(pfh: *mut pidfh) -> c_int;
+    fn pidfile_close(pfh: *mut pidfh) -> c_int;
+    fn pidfile_remove(pfh: *mut pidfh) -> c_int;
+}
+
+#[cfg(not(any(target_os = "dragonfly", target_os = "freebsd")))]
 #[allow(non_camel_case_types)]
 enum pidfh {}
-
-extern {
-    #[link_name = "pidfile_open"]
-    fn bsd_pidfile_open(path: *const c_char, mode: mode_t, pidptr: *mut pid_t) -> *mut pidfh;
-    #[link_name = "pidfile_write"]
-    fn bsd_pidfile_write(pfh: *mut pidfh) -> c_int;
-    #[link_name = "pidfile_close"]
-    fn bsd_pidfile_close(pfh: *mut pidfh) -> c_int;
-    #[link_name = "pidfile_remove"]
-    fn bsd_pidfile_remove(pfh: *mut pidfh) -> c_int;
-    #[allow(dead_code)]
-    #[link_name = "pidfile_fileno"]
-    fn bsd_pidfile_fileno(pfh: *mut pidfh) -> c_int;
-}
 
 /// A PID file protected with a lock.
 ///
@@ -121,7 +119,7 @@ impl Pidfile {
             .map_err(PidfileError::NulError)?;
         let mut old_pid: pid_t = -1;
         let pidfh = unsafe {
-            bsd_pidfile_open(c_path.as_ptr(), permissions.mode() as mode_t, &mut old_pid)
+            pidfile_open(c_path.as_ptr(), permissions.mode() as mode_t, &mut old_pid)
         };
         if !pidfh.is_null() {
             Ok(Pidfile {
@@ -148,7 +146,7 @@ impl Pidfile {
     /// The file is truncated before writing.
     pub fn write(&mut self) -> Result<(), PidfileError> {
         if unsafe {
-            bsd_pidfile_write(self.pidfh) == 0
+            pidfile_write(self.pidfh) == 0
         } {
             Ok(())
         } else {
@@ -163,7 +161,7 @@ impl Pidfile {
     /// been called.
     pub fn close(mut self) {
         if unsafe {
-            bsd_pidfile_close(self.pidfh) != 0
+            pidfile_close(self.pidfh) != 0
         } {
             let err = io::Error::last_os_error();
             warn!("Failed to close the PID file: {}", err);
@@ -176,7 +174,7 @@ impl Drop for Pidfile {
     /// Closes the PID file and removes it.
     fn drop(&mut self) {
         if unsafe {
-            bsd_pidfile_remove(self.pidfh) != 0
+            pidfile_remove(self.pidfh) != 0
         } {
             let err = io::Error::last_os_error();
             warn!("Failed to remove the PID file: {}", err);
