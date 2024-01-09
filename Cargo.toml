@@ -4,8 +4,14 @@ version = "0.1.2"
 authors = ["Andrej Shadura <andrew.shadura@collabora.co.uk>"]
 edition = "2018"
 description = "Rust wrapper for pidfile_* functions from libbsd/libutil"
+documentation = "https://docs.rs/pidfile-rs"
 license = "MIT"
 repository = "https://github.com/andrewshadura/bsd-pidfile-rs"
+
+[package.metadata.docs.rs]
+targets = [
+  "x86_64-unknown-freebsd",
+]
 
 [dependencies]
 libc = "0.2"
