@@ -12,10 +12,10 @@ libc = "0.2"
 thiserror = "1.0"
 log = "0.4"
 
-[build-dependencies]
+[target.'cfg(not(any(target_os = "dragonfly", target_os = "freebsd")))'.build-dependencies]
 system-deps = "5"
 
-[package.metadata.system-deps]
+[package.metadata.system-deps.'cfg(not(any(target_os = "dragonfly", target_os = "freebsd")))']
 libbsd = "0.1.6"
 
 [dev-dependencies]
