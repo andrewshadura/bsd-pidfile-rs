@@ -146,7 +146,7 @@ impl Pidfile {
     /// Writes the current process ID to the PID file.
     ///
     /// The file is truncated before writing.
-    pub fn write(&self) -> Result<(), PidfileError> {
+    pub fn write(&mut self) -> Result<(), PidfileError> {
         if unsafe {
             bsd_pidfile_write(self.pidfn) == 0
         } {
@@ -161,13 +161,14 @@ impl Pidfile {
     /// This function consumes the object, making it impossible
     /// to manipulated with the PID file after this function has
     /// been called.
-    pub fn close(self) {
+    pub fn close(mut self) {
         if unsafe {
             bsd_pidfile_close(self.pidfn) != 0
         } {
             let err = io::Error::last_os_error();
             warn!("Failed to close the PID file: {}", err);
         }
+        self.pidfn = std::ptr::null_mut();
     }
 }
 
@@ -199,7 +200,7 @@ mod tests {
         pidfile_path.push("file.pid");
         let my_pid = process::id().to_string();
         {
-            let pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
+            let mut pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
                 .expect("Failed to create PID file");
             println!("pidfile_path = {:?}", pidfile_path);
             assert_eq!(pidfile_path.is_file(), true);
@@ -223,7 +224,7 @@ mod tests {
         pidfile_path.push("file.pid");
         let my_pid = process::id().to_string();
         {
-            let pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
+            let mut pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
                 .expect("Failed to create PID file");
             println!("pidfile_path = {:?}", pidfile_path);
             assert_eq!(pidfile_path.is_file(), true);
@@ -274,7 +275,7 @@ mod tests {
         let mut pidfile_path = dir.path().to_owned();
         pidfile_path.push("file.pid");
         let my_pid = process::id().to_string();
-        let pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
+        let mut pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
             .expect("Failed to create PID file");
         println!("pidfile_path = {:?}", pidfile_path);
         assert_eq!(pidfile_path.is_file(), true, "PID file not created?");
