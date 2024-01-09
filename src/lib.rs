@@ -201,16 +201,15 @@ mod tests {
             let mut pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
                 .expect("Failed to create PID file");
             println!("pidfile_path = {:?}", pidfile_path);
-            assert_eq!(pidfile_path.is_file(), true);
+            assert!(pidfile_path.is_file());
             pidfile.write().expect("Failed to write PID file");
 
             let contents = read_to_string(pidfile_path.as_path()).expect("Can’t read PID file");
             assert_eq!(my_pid, contents);
         }
 
-        assert_eq!(
-            pidfile_path.is_file(),
-            false,
+        assert!(
+            !pidfile_path.is_file(),
             "PID file should have disappeared"
         );
     }
@@ -225,7 +224,7 @@ mod tests {
             let mut pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
                 .expect("Failed to create PID file");
             println!("pidfile_path = {:?}", pidfile_path);
-            assert_eq!(pidfile_path.is_file(), true);
+            assert!(pidfile_path.is_file());
             pidfile.write().expect("Failed to write PID file");
 
             let contents = read_to_string(pidfile_path.as_path()).expect("Can’t read PID file");
@@ -234,9 +233,8 @@ mod tests {
             pidfile.close();
         }
 
-        assert_eq!(
+        assert!(
             pidfile_path.is_file(),
-            true,
             "PID file should have not disappeared"
         );
     }
@@ -250,7 +248,7 @@ mod tests {
         let error = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
             .expect_err("PID file shouldn’t exist, but it does");
         println!("pidfile_path = {:?}", pidfile_path);
-        assert_eq!(pidfile_path.is_file(), false);
+        assert!(!pidfile_path.is_file());
         if let PidfileError::Io(error) = error {
             assert_eq!(error.kind(), io::ErrorKind::NotFound);
         } else {
@@ -276,7 +274,7 @@ mod tests {
         let mut pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
             .expect("Failed to create PID file");
         println!("pidfile_path = {:?}", pidfile_path);
-        assert_eq!(pidfile_path.is_file(), true, "PID file not created?");
+        assert!(pidfile_path.is_file(), "PID file not created?");
         pidfile.write().expect("Failed to write PID file");
 
         let contents = read_to_string(pidfile_path.as_path()).expect("Can’t read PID file");
