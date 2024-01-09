@@ -3,8 +3,8 @@
 use std::ffi::{CString, NulError};
 use std::fs::Permissions;
 use std::io;
-use std::os::unix::{ffi::OsStringExt, fs::PermissionsExt};
-use std::path::PathBuf;
+use std::os::unix::{ffi::OsStrExt, fs::PermissionsExt};
+use std::path::Path;
 use libc::{c_char, c_int, mode_t, pid_t};
 use log::warn;
 use thiserror::Error;
@@ -114,8 +114,8 @@ impl Pidfile {
     /// If the PID file cannot be locked, returns `PidfileError::AlreadyRunning` with
     /// a PID of the already running process, or `None` if no PID has been written to
     /// the PID file yet.
-    pub fn new(path: &PathBuf, permissions: Permissions) -> Result<Pidfile, PidfileError> {
-        let c_path = CString::new(path.clone().into_os_string().into_vec())
+    pub fn new(path: &Path, permissions: Permissions) -> Result<Pidfile, PidfileError> {
+        let c_path = CString::new(path.as_os_str().as_bytes())
             .map_err(PidfileError::NulError)?;
         let mut old_pid: pid_t = -1;
         let pidfh = unsafe {
