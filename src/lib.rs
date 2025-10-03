@@ -13,7 +13,7 @@ use thiserror::Error;
 use libc::{pidfh, pidfile_close, pidfile_open, pidfile_remove, pidfile_write};
 
 #[cfg(not(any(target_os = "dragonfly", target_os = "freebsd")))]
-extern {
+extern "C" {
     fn pidfile_open(path: *const c_char, mode: mode_t, pidptr: *mut pid_t) -> *mut pidfh;
     fn pidfile_write(pfh: *mut pidfh) -> c_int;
     fn pidfile_close(pfh: *mut pidfh) -> c_int;
