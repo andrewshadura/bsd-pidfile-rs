@@ -2,7 +2,7 @@
 name = "pidfile-rs"
 version = "0.2.1"
 authors = ["Andrej Shadura <andrew.shadura@collabora.co.uk>"]
-edition = "2018"
+edition = "2021"
 description = "Rust wrapper for pidfile_* functions from libbsd/libutil"
 documentation = "https://docs.rs/pidfile-rs"
 license = "MIT"
