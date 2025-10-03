@@ -1,12 +1,12 @@
 // Copyright (C) 2020—2024 Andrej Shadura
 // SPDX-License-Identifier: MIT
+use libc::{c_char, c_int, mode_t, pid_t};
+use log::warn;
 use std::ffi::{CString, NulError};
 use std::fs::Permissions;
 use std::io;
 use std::os::unix::{ffi::OsStrExt, fs::PermissionsExt};
 use std::path::Path;
-use libc::{c_char, c_int, mode_t, pid_t};
-use log::warn;
 use thiserror::Error;
 
 #[cfg(any(target_os = "dragonfly", target_os = "freebsd"))]
@@ -85,7 +85,7 @@ enum pidfh {}
 /// [`daemon`(3)]: https://linux.die.net/man/3/daemon
 #[derive(Debug)]
 pub struct Pidfile {
-    pidfh: *mut pidfh
+    pidfh: *mut pidfh,
 }
 
 #[derive(Error, Debug)]
@@ -97,9 +97,7 @@ pub enum PidfileError {
         Some(pid) => format!("PID {pid}"),
         None => "unknown PID".into()
     })]
-    AlreadyRunning {
-        pid: Option<pid_t>
-    },
+    AlreadyRunning { pid: Option<pid_t> },
     /// An I/O error has occurred.
     #[error(transparent)]
     Io(#[from] io::Error),
@@ -115,25 +113,17 @@ impl Pidfile {
     /// a PID of the already running process, or `None` if no PID has been written to
     /// the PID file yet.
     pub fn new(path: &Path, permissions: Permissions) -> Result<Pidfile, PidfileError> {
-        let c_path = CString::new(path.as_os_str().as_bytes())
-            .map_err(PidfileError::NulError)?;
+        let c_path = CString::new(path.as_os_str().as_bytes()).map_err(PidfileError::NulError)?;
         let mut old_pid: pid_t = -1;
-        let pidfh = unsafe {
-            pidfile_open(c_path.as_ptr(), permissions.mode() as mode_t, &mut old_pid)
-        };
+        let pidfh =
+            unsafe { pidfile_open(c_path.as_ptr(), permissions.mode() as mode_t, &mut old_pid) };
         if !pidfh.is_null() {
-            Ok(Pidfile {
-                pidfh
-            })
+            Ok(Pidfile { pidfh })
         } else {
             let err = io::Error::last_os_error();
             if err.kind() == io::ErrorKind::AlreadyExists {
                 Err(PidfileError::AlreadyRunning {
-                    pid: if old_pid != -1 {
-                        Some(old_pid)
-                    } else {
-                        None
-                    }
+                    pid: if old_pid != -1 { Some(old_pid) } else { None },
                 })
             } else {
                 Err(PidfileError::Io(err))
@@ -145,9 +135,7 @@ impl Pidfile {
     ///
     /// The file is truncated before writing.
     pub fn write(&mut self) -> Result<(), PidfileError> {
-        if unsafe {
-            pidfile_write(self.pidfh) == 0
-        } {
+        if unsafe { pidfile_write(self.pidfh) == 0 } {
             Ok(())
         } else {
             Err(PidfileError::Io(io::Error::last_os_error()))
@@ -160,9 +148,7 @@ impl Pidfile {
     /// to manipulated with the PID file after this function has
     /// been called.
     pub fn close(mut self) {
-        if unsafe {
-            pidfile_close(self.pidfh) != 0
-        } {
+        if unsafe { pidfile_close(self.pidfh) != 0 } {
             let err = io::Error::last_os_error();
             warn!("Failed to close the PID file: {err}");
         }
@@ -173,9 +159,7 @@ impl Pidfile {
 impl Drop for Pidfile {
     /// Closes the PID file and removes it.
     fn drop(&mut self) {
-        if unsafe {
-            pidfile_remove(self.pidfh) != 0
-        } {
+        if unsafe { pidfile_remove(self.pidfh) != 0 } {
             let err = io::Error::last_os_error();
             warn!("Failed to remove the PID file: {err}");
         }
@@ -185,7 +169,7 @@ impl Drop for Pidfile {
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use std::fs::{Permissions, read_to_string};
+    use std::fs::{read_to_string, Permissions};
     use std::io;
     use std::os::unix::fs::PermissionsExt;
     use std::process;
@@ -208,10 +192,7 @@ mod tests {
             assert_eq!(my_pid, contents);
         }
 
-        assert!(
-            !pidfile_path.is_file(),
-            "PID file should have disappeared"
-        );
+        assert!(!pidfile_path.is_file(), "PID file should have disappeared");
     }
 
     #[test]
