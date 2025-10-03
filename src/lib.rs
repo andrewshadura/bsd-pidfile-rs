@@ -94,7 +94,7 @@ pub enum PidfileError {
     /// already running process or `None` in case it did not write
     /// its PID yet.
     #[error("daemon already running with {}", match .pid {
-        Some(pid) => format!("PID {}", pid),
+        Some(pid) => format!("PID {pid}"),
         None => "unknown PID".into()
     })]
     AlreadyRunning {
@@ -164,7 +164,7 @@ impl Pidfile {
             pidfile_close(self.pidfh) != 0
         } {
             let err = io::Error::last_os_error();
-            warn!("Failed to close the PID file: {}", err);
+            warn!("Failed to close the PID file: {err}");
         }
         self.pidfh = std::ptr::null_mut();
     }
@@ -177,7 +177,7 @@ impl Drop for Pidfile {
             pidfile_remove(self.pidfh) != 0
         } {
             let err = io::Error::last_os_error();
-            warn!("Failed to remove the PID file: {}", err);
+            warn!("Failed to remove the PID file: {err}");
         }
     }
 }
@@ -200,7 +200,7 @@ mod tests {
         {
             let mut pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
                 .expect("Failed to create PID file");
-            println!("pidfile_path = {:?}", pidfile_path);
+            println!("pidfile_path = {pidfile_path:?}");
             assert!(pidfile_path.is_file());
             pidfile.write().expect("Failed to write PID file");
 
@@ -223,7 +223,7 @@ mod tests {
         {
             let mut pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
                 .expect("Failed to create PID file");
-            println!("pidfile_path = {:?}", pidfile_path);
+            println!("pidfile_path = {pidfile_path:?}");
             assert!(pidfile_path.is_file());
             pidfile.write().expect("Failed to write PID file");
 
@@ -247,7 +247,7 @@ mod tests {
         pidfile_path.push("file.pid");
         let error = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
             .expect_err("PID file shouldn’t exist, but it does");
-        println!("pidfile_path = {:?}", pidfile_path);
+        println!("pidfile_path = {pidfile_path:?}");
         assert!(!pidfile_path.is_file());
         if let PidfileError::Io(error) = error {
             assert_eq!(error.kind(), io::ErrorKind::NotFound);
@@ -259,7 +259,7 @@ mod tests {
         let error = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
             .expect_err("NULs should not have been accepted, but they were");
         if let PidfileError::NulError(error) = error {
-            println!("expected error: {}", error);
+            println!("expected error: {error}");
         } else {
             panic!("unexpected error: {:?}", error)
         }
@@ -273,7 +273,7 @@ mod tests {
         let my_pid = process::id().to_string();
         let mut pidfile = Pidfile::new(&pidfile_path, Permissions::from_mode(0o600))
             .expect("Failed to create PID file");
-        println!("pidfile_path = {:?}", pidfile_path);
+        println!("pidfile_path = {pidfile_path:?}");
         assert!(pidfile_path.is_file(), "PID file not created?");
         pidfile.write().expect("Failed to write PID file");
 
@@ -284,7 +284,7 @@ mod tests {
             .expect_err("Expected error, but got");
         assert_eq!(
             error.to_string(),
-            format!("daemon already running with PID {}", my_pid)
+            format!("daemon already running with PID {my_pid}")
         );
         if let PidfileError::AlreadyRunning { pid } = error {
             assert_eq!(
