@@ -1,7 +1,7 @@
 BSD pidfile for Rust
 ====================
 
-This crate provides a wrapper for a family of [`pidfile_*` functions][pidfile] provided in the BSD systems by [libutil][], and elsewhere by [libbsd][].
+This crate provides a reimplementation of a family of [`pidfile_*` functions][pidfile] provided in the BSD systems by [libutil][], and elsewhere by [libbsd][].
 
 Known alternatives in pure Rust:
 
@@ -11,11 +11,12 @@ Known alternatives in pure Rust:
 
 The BSD pidfile functions employ very clever locking mechanism, detect concurrently running daemons and allow deferring writes to the PID file, so potential errors can be handled before a fork.
 
-The ultimate goal is to rewrite these functions in Rust, but until a rewrite is done, it’s best to use the BSD functions using the FFI.
+This crate reimplements the functionality of the pidfile functions in Rust using the [`flopen`][rust-flopen] crate.
 
 [libutil]: https://man.netbsd.org/libutil.3
 [libbsd]: https://libbsd.freedesktop.org/
 [pidfile]: https://linux.die.net/man/3/pidfile
+[rust-flopen]: https://github.com/andrewshadura/rust-flopen
 
 License
 -------
