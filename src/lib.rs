@@ -123,7 +123,7 @@ impl Pidfile {
         };
         if !pidfh.is_null() {
             Ok(Pidfile {
-                pidfh: pidfh
+                pidfh
             })
         } else {
             let err = io::Error::last_os_error();
