@@ -3,10 +3,10 @@ name = "pidfile-rs"
 version = "0.2.1"
 authors = ["Andrej Shadura <andrew.shadura@collabora.co.uk>"]
 edition = "2021"
-description = "Rust wrapper for pidfile_* functions from libbsd/libutil"
+description = "Rust reimplementation of pidfile_* functions from libbsd/libutil"
 documentation = "https://docs.rs/pidfile-rs"
 license = "MIT"
-repository = "https://github.com/andrewshadura/bsd-pidfile-rs"
+repository = "https://github.com/andrewshadura/pidfile-rs"
 
 [dependencies]
 libc = "0.2.147"
